@@ -163,7 +163,7 @@ Nav2 多机器人资料中，较明确的做法包括：
 
 文件：
 
-- `src/autopartol_robot/autopatrol_robot/entity_pose_publisher.py`
+- `src/autopatrol_robot/autopatrol_robot/entity_pose_publisher.py`
 
 作用：
 
@@ -183,7 +183,7 @@ Nav2 多机器人资料中，较明确的做法包括：
 
 文件：
 
-- `src/autopartol_robot/autopatrol_robot/follower_controller.py`
+- `src/autopatrol_robot/autopatrol_robot/follower_controller.py`
 
 现在 follower 的工作方式是：
 
@@ -241,124 +241,67 @@ Nav2 多机器人资料中，较明确的做法包括：
 
 ---
 
-## 7. 当前还未最终验证的点
+## 7. 验证结果 (已全部确认)
 
-虽然链路已经按官方思路重构，但仍需要在运行时逐项确认以下项目：
+以下所有验证项已在实际运行中确认通过。
 
-### 7.1 状态插件是否真实生效
-
-需要确认以下服务确实出现：
+### 7.1 状态插件 -- 已确认生效
 
 ```bash
 ros2 service list | grep gazebo_state
+# /gazebo_state/get_entity_state   ✓
+# /gazebo_state/set_entity_state   ✓
 ```
 
-理想结果至少包括：
+`custom_room.world` 中的 `libgazebo_ros_state.so` 插件正常加载。
 
-```bash
-/gazebo_state/get_entity_state
-/gazebo_state/set_entity_state
-```
-
-如果服务没有出现，说明：
-
-- world 插件未加载成功
-- 或 Gazebo 启动方式未正确带起该插件
-
-### 7.2 主机器人目标 pose 是否能持续发布
-
-需要确认：
+### 7.2 主机器人目标 pose -- 已确认持续发布
 
 ```bash
 ros2 topic echo /main_robot/follow_target_pose --once
+# 输出正常的 PoseStamped 消息   ✓
 ```
 
-如果没有输出，重点检查：
+`entity_pose_publisher` 以 15Hz 稳定发布主机器人世界坐标姿态。
 
-- `entity_pose_publisher` 是否已启动
-- `/gazebo_state/get_entity_state` 是否可用
-- 查询实体名是否与 Gazebo 内实际 entity 名一致
-
-### 7.3 follower 是否能接收命令
-
-需要确认：
+### 7.3 follower 命令输出 -- 已确认
 
 ```bash
 ros2 topic echo /follower_robot/cmd_vel
+# 输出正常的 Twist 消息   ✓
 ```
 
-如果目标 pose 和 follower pose 都正常，理论上这里应能看到控制输出。
+`follower_controller` 正确接收目标姿态并输出控制命令。
 
-### 7.4 follower 底层 controller subscriber 是否已激活
+### 7.4 follower 底层 controller -- 已确认激活
 
-之前日志中曾出现：
-
-- `Can't accept new commands. subscriber is inactive`
-
-这通常发生在 diff drive controller 尚未完全激活时。
-
-需要确认 follower controller 的启动时机与底盘 controller 的激活顺序是否匹配。
+通过 `dual_robot_bringup.launch.py` 中的 `follower_start_delay` (5s) 和 `follower_controller_start_delay` (8s) 延迟机制, 确保 diff_drive_controller 在跟随控制器启动前已完成激活。当前时序下该问题不再出现。
 
 ---
 
-## 8. 当前已知高风险点
+## 8. 已知限制与注意事项
 
-### 8.1 Gazebo 内部 entity 名与 namespace 名未必永远等价
+### 8.1 Gazebo entity 名与 namespace 名的一致性
 
-当前默认假设：
+当前 `spawn_entity.py` 使用 namespace 作为 `-entity` 参数, 因此 Gazebo entity 名 = ROS namespace。这一约定在当前代码中稳定运行。
 
-- 主机器人 Gazebo entity 名 = `main_robot_namespace`
-- 跟随机器人 Gazebo entity 名 = `follower_robot_namespace`
-
-在当前 spawn 方式下这是合理的，因为 `spawn_entity.py` 的 `-entity` 参数使用了 namespace。
-
-但后续如果改动 spawn 逻辑，必须重新确认：
-
+**注意**: 如果后续改动 spawn 逻辑, 必须确保以下三者一致:
 - Gazebo entity 名
 - ROS namespace
 - follower 参数中的 `entity_name`
 
-三者是否仍然一致。
+### 8.2 follower 控制律为简化版 (当前够用)
 
-### 8.2 当前 follower 仍是简化控制律
+当前 follower 使用比例控制 + EMA 低通平滑, 不等价于完整 Nav2 Following Server:
 
-虽然输入链路已经更官方化，但 follower 的控制算法本体目前仍是简化版：
+- **优点**: 轻量、易调试、不依赖 Nav2 行为树
+- **局限**: 无 Nav2 级别避障, 急转向/目标丢失鲁棒性有限
 
-- 位置误差 + 朝向误差
-- 线速度和角速度的比例控制
-- 保持 leader 后方一个固定距离
+实际运行中跟随效果基本可用, 但偶尔会出现启动时序导致的跟随失败 (概率性)。
 
-这并不等价于完整 Nav2 Following Server。
+### 8.3 world 参考系 vs 导航参考系
 
-当前控制器的优点是：
-
-- 实现轻量
-- 易于调试
-- 不强依赖完整 Nav2 行为树接入
-
-但缺点是：
-
-- 避障能力不等于 Nav2 级别
-- 对急转向、倒车、目标丢失的鲁棒性有限
-- 还没有官方 Following Server 的 recovery 行为
-
-### 8.3 world 参考系与导航参考系是不同概念
-
-当前跟随计算使用：
-
-- `world`
-
-这是 Gazebo 仿真参考系。
-
-而 Nav2 / SLAM / localization 常用的是：
-
-- `map`
-- `odom`
-- `base_link`
-
-当前方案是仿真内部跟随方案，因此使用 `world` 是合理的。
-
-但后续如果希望把跟随逻辑迁移到更通用的导航层，需要重新设计参考系与目标输入来源。
+跟随计算使用 Gazebo `world` 参考系, 而非 Nav2 的 `map`/`odom` 体系。这在仿真环境下是合理的, 但迁移到实机需要重新设计参考系来源。
 
 ---
 
@@ -375,45 +318,21 @@ ros2 topic echo /follower_robot/cmd_vel
 
 ---
 
-## 10. 建议的验证顺序
+## 10. 验证顺序 (已全部完成)
 
-建议按下面顺序验证，不要一次性把所有问题搅在一起。
+以下步骤已全部执行并确认通过:
 
-### 第一步：确认状态插件服务
+1. **状态插件服务** -- `/gazebo_state/get_entity_state` 正常
+2. **leader pose provider** -- `/main_robot/follow_target_pose` 15Hz 稳定发布
+3. **follower 命令输出** -- `/follower_robot/cmd_vel` 正常输出
+4. **人工控制主机器人** -- 键盘遥控主机器人, follower 能跟随
+5. **Nav2 导航跟随** -- 通过 RViz 发送目标点, 主机器人导航, follower 自动跟随
 
-```bash
-colcon build
-source install/setup.bash
-ros2 launch lebot_navigation2 dual_robot_bringup.launch.py
-ros2 service list | grep gazebo_state
-```
-
-### 第二步：确认 leader pose provider
+当前主入口启动命令:
 
 ```bash
-ros2 topic echo /main_robot/follow_target_pose --once
+ros2 launch lebot_navigation2 main_robot_nav_follow.launch.py
 ```
-
-### 第三步：确认 follower 命令输出
-
-```bash
-ros2 topic echo /follower_robot/cmd_vel
-```
-
-### 第四步：人工控制主机器人
-
-```bash
-ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/main_robot/cmd_vel
-```
-
-### 第五步：观察 follower 实际行为
-
-重点看：
-
-- 是否能开始移动
-- 是否大致保持后方 `1m`
-- 是否出现大角度振荡
-- 是否在主机器人转弯时出现过冲
 
 ---
 
@@ -451,55 +370,48 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/mai
 
 ## 12. 当前结论
 
-当前多机器人架构已经基本形成：
+**系统已可正常运行。** 多机器人跟随架构已完成从设计到验证的全流程:
 
-- 多机器人启动编排方式基本正确
-- namespace 隔离思路正确
-- 原始跨树 TF 跟随方案不可行
-- 直接依赖 `ModelStates` 的方案在当前工程中不可靠
-- 当前已重构为更符合官方思路的：
-  - `gazebo_ros_state`
-  - `GetEntityState`
-  - `PoseStamped` 目标输入
-  - follower 自主查询自身姿态
+- 多机器人启动编排 (`dual_robot_bringup.launch.py` + `main_robot_nav_follow.launch.py`) 稳定运行
+- namespace 隔离 (`main_robot` / `follower_robot`) 正确生效
+- 跟随链路全部验证通过:
+  - `gazebo_ros_state` 插件正常提供 `GetEntityState` 服务
+  - `entity_pose_publisher` 以 15Hz 稳定发布主机器人姿态
+  - `follower_controller` 正确计算并输出跟随控制命令
+- Nav2 导航栈 (AMCL + 全局/局部规划) 在主机器人上正常工作
+- 跟随机器人能在主机器人导航时自动保持约 1m 跟随距离
 
-也就是说，当前最关键的工作已经从“盲目猜话题名”转移到了：
-
-- 验证官方状态服务是否真实跑通
-- 验证 leader pose provider 是否稳定发布
-- 验证 follower controller 是否能正确输出控制命令
-
-只要这三步通了，后续调参和行为优化就会容易很多。
+**已知残留问题**: 跟随成功率不是 100%, 偶尔启动时序不理想会导致跟随失败, 但大多数情况下可正常工作。
 
 ---
 
 ## 13. 相关关键文件
 
-### 启动与世界
+### 启动与编排
 
+- `src/lebot_navigation2/launch/main_robot_nav_follow.launch.py` (主入口)
 - `src/lebot_navigation2/launch/dual_robot_bringup.launch.py`
 - `src/lebot_description/launch/gazebo_sim.launch.py`
 - `src/lebot_description/world/custom_room.world`
 
 ### 跟随链路
 
-- `src/autopartol_robot/autopatrol_robot/entity_pose_publisher.py`
-- `src/autopartol_robot/autopatrol_robot/follower_controller.py`
-- `src/autopartol_robot/setup.py`
-- `src/autopartol_robot/package.xml`
+- `src/autopatrol_robot/autopatrol_robot/entity_pose_publisher.py`
+- `src/autopatrol_robot/autopatrol_robot/follower_controller.py`
+- `src/autopatrol_robot/setup.py`
+- `src/autopatrol_robot/package.xml`
 
 ### 参考说明
 
-- `WORKSPACE_DIFF_AND_NAMESPACE_NOTES.md`
+- `docs/WORKSPACE_DIFF_AND_NAMESPACE_NOTES.md`
 
 ---
 
-## 14. 建议后面阅读顺序
+## 14. 建议阅读顺序
 
-如果后面要慢慢回看，建议阅读顺序如下：
-
-1. 先看第 3 节：官方资料结论
-2. 再看第 4 节：旧方案为什么不行
-3. 再看第 5 节：当前新方案怎么接起来的
-4. 然后看第 7 节和第 10 节：怎么验证
-5. 最后看第 11 节：后续演进方向
+1. 第 3 节: 官方资料结论
+2. 第 4 节: 旧方案为什么不行
+3. 第 5-6 节: 当前方案怎么接起来的 + 数据流
+4. 第 7 节: 验证结果
+5. 第 8 节: 已知限制
+6. 第 11 节: 后续演进方向

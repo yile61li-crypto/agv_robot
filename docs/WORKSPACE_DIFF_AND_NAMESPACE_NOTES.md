@@ -5,7 +5,7 @@
 本说明对比的是两个工作空间的 `src/` 源码树：
 
 - 当前版本：`/home/lyl/lebot_ws/src`
-- 单机版本：`/home/lyl/lebot_ws_d/src`
+- 单机版本：`/home/lyl/lebot_ws_d/src` 
 
 不比较 `build/`、`install/`、`log/`。
 
@@ -17,19 +17,21 @@
 
 两个工作空间包含的包集合相同，没有包级别的增删：
 
-- `autopartol_robot`
+- `autopatrol_robot`
 - `autopatrol_interfaces`
 - `laser_merger`
 - `lebot_description`
 - `lebot_navigation2`
 
+**注意**: 单机版包名为 `autopartol_robot` (拼写错误), 当前版已修正为 `autopatrol_robot`。
+
 其中：
 
 - **未发现源码差异的包**
-  - `autopartol_robot`
   - `autopatrol_interfaces`
 
 - **存在源码差异的包**
+  - `autopatrol_robot` (新增跟随链路节点 + 包名修正)
   - `laser_merger`
   - `lebot_description`
   - `lebot_navigation2`
@@ -38,13 +40,35 @@
 
 ## 3. 包级差异清单
 
-## 3.1 `laser_merger`
+## 3.1 `autopatrol_robot`
 
-### 3.1.1 发生变化的文件
+### 3.1.1 包名修正
+
+单机版目录名为 `autopartol_robot` (拼写错误), 当前版已重命名为 `autopatrol_robot`。`setup.py`、`setup.cfg`、`package.xml` 中的包名同步修正。
+
+### 3.1.2 新增文件
+
+- `autopatrol_robot/entity_pose_publisher.py` — 从 Gazebo 获取主机器人姿态并发布为 `PoseStamped`
+- `autopatrol_robot/follower_controller.py` — 跟随控制器, 订阅目标姿态 + 查询自身姿态, 输出 `cmd_vel`
+
+### 3.1.3 改动意义
+
+这两个节点构成了双机器人跟随链路的核心:
+
+1. `entity_pose_publisher` 以 15Hz 调用 `/gazebo_state/get_entity_state` 获取主机器人世界坐标姿态, 发布到 `/main_robot/follow_target_pose`
+2. `follower_controller` 订阅该目标姿态, 同时查询跟随机器人自身姿态, 通过比例控制 + EMA 平滑输出 `/follower_robot/cmd_vel`
+
+这使得跟随逻辑不再依赖跨树 TF 或不可靠的 `ModelStates` topic。
+
+---
+
+## 3.2 `laser_merger`
+
+### 3.2.1 发生变化的文件
 
 - `laser_merger/laser_merger_node.py`（修改）
 
-### 3.1.2 改动明细
+### 3.2.2 改动明细
 
 #### A. 输入/输出话题由绝对名改为相对名
 
@@ -89,13 +113,13 @@
 
 ---
 
-## 3.2 `lebot_description`
+## 3.3 `lebot_description`
 
-### 3.2.1 新增文件
+### 3.3.1 新增文件
 
 - `launch/runtime_rviz.launch.py`
 
-### 3.2.2 修改文件
+### 3.3.2 修改文件
 
 - `config/ekf_config.yaml`
 - `config/lebot.rviz`
@@ -111,7 +135,7 @@
 - `urdf/lebot/lebot.urdf.xacro`
 - `urdf/lebot/wheel.urdf.xacro`
 
-### 3.2.3 改动主线
+### 3.3.3 改动主线
 
 `lebot_description` 的改动本质上是：
 
@@ -119,7 +143,7 @@
 - 全部从单机默认命名
 - 变成以 `robot_namespace` 为入口的命名空间化系统
 
-### 3.2.4 核心改动明细
+### 3.3.4 核心改动明细
 
 #### A. `gazebo_sim.launch.py` 新增 `robot_namespace` 入口
 
@@ -267,33 +291,38 @@
 
 ---
 
-## 3.3 `lebot_navigation2`
+## 3.4 `lebot_navigation2`
 
-### 3.3.1 新增文件
+### 3.4.1 新增文件
 
 - `config/nav2.rviz`
 - `config/slam_params.yaml`
 - `launch/runtime_localization.launch.py`
 - `launch/runtime_navigation.launch.py`
-- `launch/slam.launch.py`
-- `maps/room6.pgm`
-- `maps/room6.yaml`
+- `launch/dual_robot_bringup.launch.py` — 双机器人编排总控
+- `launch/main_robot_nav_follow.launch.py` — 导航+跟随主入口
+- `launch/mapping.launch.py` — SLAM 建图入口
+- `maps/room5.pgm` / `room5.yaml` — 统一默认地图
+- `maps/room6.pgm` / `room6.yaml`
 
-### 3.3.2 修改文件
+**注意**: 单机版曾有 `launch/slam.launch.py`, 当前版已删除 (功能合并到 `mapping.launch.py`)。
+
+### 3.4.2 修改文件
 
 - `config/nav2_params.yaml`
 - `launch/navigation2.launch.py`
 - `package.xml`
 
-### 3.3.3 改动主线
+### 3.4.3 改动主线
 
 `lebot_navigation2` 的变化最大，核心目标是：
 
 - 从单机版 Nav2 配置
 - 迁移到支持 `main_robot` 命名空间的 Nav2 + SLAM + RViz 方案
 - 并绕开上游 `nav2_bringup` 在该项目里引出的 TF 问题
+- 新增双机器人编排和导航+跟随的统一入口
 
-### 3.3.4 核心改动明细
+### 3.4.4 核心改动明细
 
 #### A. `navigation2.launch.py` 从“直接包含上游 bringup”改为“包含本地运行时 launch”
 
@@ -411,25 +440,23 @@
 
 这是为改善拐角切弯、贴墙问题做的保留调参。
 
-#### F. 新增 `slam.launch.py` 与 `slam_params.yaml`
+#### F. SLAM 建图启动重构
 
-单机版的 `lebot_navigation2` 里没有这一套本地 SLAM 启动/参数文件。
+单机版的 `lebot_navigation2` 里没有本地 SLAM 启动/参数文件。
 
-当前版新增：
-
-- `launch/slam.launch.py`
-- `config/slam_params.yaml`
-
-其中 `slam_params.yaml` 已明确写成当前机器人命名方式：
+当前版新增了 `config/slam_params.yaml`, 已写成命名空间化格式:
 
 - `odom_frame: main_robot/odom`
 - `base_frame: main_robot/base_footprint`
 - `scan_topic: /main_robot/scan`
 
+启动文件方面, 早期新增了 `launch/slam.launch.py`, 后来整合为功能更完整的 `launch/mapping.launch.py` (包含 Gazebo + SLAM + 键盘遥控 + RViz), 并删除了冗余的 `slam.launch.py`。
+
 **意义**：
 
 - SLAM 从一开始就不再依赖单机默认 frame/topic
 - 直接对接当前命名空间化机器人
+- `mapping.launch.py` 提供一键建图体验
 
 #### G. 新增 `nav2.rviz`
 
@@ -466,17 +493,30 @@
 - 节点在 `main_robot` 命名空间内时，RViz 用相对话题才会自动解析到 `/main_robot/...`
 - 如果继续使用官方默认视图里的 `/map`、`/scan` 等全局话题，RViz 会出现“地图没加载/局部规划不显示”的假象
 
-#### H. `package.xml` 依赖增加
+#### H. 新增 `dual_robot_bringup.launch.py` — 双机器人编排
+
+单机版没有多机器人编排能力。当前版新增了专用的双机器人总控 launch:
+
+- 组合两个 `gazebo_sim.launch.py` 实例 (main_robot + follower_robot)
+- 第一个实例启动 Gazebo, 第二个使用 `launch_gazebo:=false`
+- 通过 `follower_start_delay` (默认 5s) 延迟生成跟随机器人, 避免启动竞争
+- 通过 `follower_controller_start_delay` (默认 8s) 延迟启动跟随控制器
+
+#### I. 新增 `main_robot_nav_follow.launch.py` — 统一入口
+
+这是当前系统的**主入口**, 将所有子系统编排在一起:
+
+- 调用 `dual_robot_bringup.launch.py` 生成双机器人
+- 调用 `navigation2.launch.py` 启动 Nav2 导航栈
+- 启动 `entity_pose_publisher` 和 `follower_controller`
+- 支持参数透传: 命名空间、延迟时间、跟随距离、增益等
+
+#### J. `package.xml` 依赖增加
 
 当前版相对于单机版新增依赖：
 
-- `nav2_common`
-- `slam_toolbox`
-
-原因：
-
-- `nav2_common` 用于 `ReplaceString`、`RewrittenYaml`
-- `slam_toolbox` 用于把 SLAM 启动链内置到本包
+- `nav2_common` — 用于 `ReplaceString`、`RewrittenYaml`
+- `slam_toolbox` — 用于把 SLAM 启动链内置到本包
 
 ---
 
@@ -484,10 +524,18 @@
 
 ## 4.1 无差异包
 
-- `autopartol_robot`
 - `autopatrol_interfaces`
 
 ## 4.2 有差异包
+
+### `autopatrol_robot` (原 `autopartol_robot`)
+
+- 重命名
+  - 目录 `autopartol_robot/` → `autopatrol_robot/`
+
+- 新增
+  - `autopatrol_robot/entity_pose_publisher.py`
+  - `autopatrol_robot/follower_controller.py`
 
 ### `laser_merger`
 
@@ -521,9 +569,14 @@
   - `config/slam_params.yaml`
   - `launch/runtime_localization.launch.py`
   - `launch/runtime_navigation.launch.py`
-  - `launch/slam.launch.py`
-  - `maps/room6.pgm`
-  - `maps/room6.yaml`
+  - `launch/dual_robot_bringup.launch.py`
+  - `launch/main_robot_nav_follow.launch.py`
+  - `launch/mapping.launch.py`
+  - `maps/room5.pgm` / `room5.yaml`
+  - `maps/room6.pgm` / `room6.yaml`
+
+- 删除
+  - `launch/slam.launch.py` (功能合并到 `mapping.launch.py`)
 
 - 修改
   - `config/nav2_params.yaml`
