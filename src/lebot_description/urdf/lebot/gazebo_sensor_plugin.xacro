@@ -15,7 +15,7 @@
                     <frame_name>${link_prefix}${frame_prefix}${laser_name}_link</frame_name>
                 </plugin>
                 <always_on>true</always_on>
-                <visualize>true</visualize>
+                <visualize>false</visualize>
                 <update_rate>20</update_rate>
                 <ray>
                     <scan>

@@ -3,9 +3,7 @@ from rclpy.node import Node
 from rclpy.duration import Duration
 import math
 import tf2_ros
-import tf2_geometry_msgs
 from sensor_msgs.msg import LaserScan
-from geometry_msgs.msg import PointStamped
 from message_filters import ApproximateTimeSynchronizer, Subscriber
 
 
@@ -99,6 +97,16 @@ class LaserMerger(Node):
         half_width = self.car_width / 2 + self.body_filter_margin_y
         return abs(x) < half_length and abs(y) < half_width
 
+    def _extract_2d_transform(self, transform_stamped):
+        """从 TransformStamped 中提取 2D 变换参数 (tx, ty, cos_yaw, sin_yaw)"""
+        t = transform_stamped.transform
+        tx = t.translation.x
+        ty = t.translation.y
+        qz = t.rotation.z
+        qw = t.rotation.w
+        yaw = math.atan2(2.0 * (qw * qz), 1.0 - 2.0 * (qz * qz))
+        return tx, ty, math.cos(yaw), math.sin(yaw)
+
     def transform_scan_to_base(self, scan_msg):
         angles = []
         ranges = []
@@ -120,40 +128,38 @@ class LaserMerger(Node):
             )
             return angles, ranges
 
+        # 一次提取变换矩阵参数，避免逐点调用 do_transform_point
+        tx, ty, cos_yaw, sin_yaw = self._extract_2d_transform(trans)
+        half_length = self.car_length / 2 + self.body_filter_margin_x
+        half_width = self.car_width / 2 + self.body_filter_margin_y
+
         angle = scan_msg.angle_min
         cos_inc = math.cos(scan_msg.angle_increment)
         sin_inc = math.sin(scan_msg.angle_increment)
         current_cos = math.cos(angle)
         current_sin = math.sin(angle)
+        r_min = scan_msg.range_min
+        r_max = scan_msg.range_max
 
         for r in scan_msg.ranges:
-            if math.isinf(r) or math.isnan(r) or r < scan_msg.range_min or r > scan_msg.range_max:
+            if math.isinf(r) or math.isnan(r) or r < r_min or r > r_max:
                 new_cos = current_cos * cos_inc - current_sin * sin_inc
                 new_sin = current_sin * cos_inc + current_cos * sin_inc
                 current_cos, current_sin = new_cos, new_sin
                 continue
 
+            # 局部坐标
             x_local = r * current_cos
             y_local = r * current_sin
 
-            point_in = PointStamped()
-            point_in.header = scan_msg.header
-            point_in.point.x = x_local
-            point_in.point.y = y_local
-            point_in.point.z = 0.0
+            # 手动 2D 刚体变换: R * p + t
+            x_base = cos_yaw * x_local - sin_yaw * y_local + tx
+            y_base = sin_yaw * x_local + cos_yaw * y_local + ty
 
-            try:
-                point_out = tf2_geometry_msgs.do_transform_point(point_in, trans)
-            except Exception as e:
-                self.get_logger().error(f"Point transform failed: {e}")
-                new_cos = current_cos * cos_inc - current_sin * sin_inc
-                new_sin = current_sin * cos_inc + current_cos * sin_inc
-                current_cos, current_sin = new_cos, new_sin
-                continue
-
-            if not self.is_self_occlusion(point_out.point.x, point_out.point.y):
-                r_merged = math.hypot(point_out.point.x, point_out.point.y)
-                angle_merged = math.atan2(point_out.point.y, point_out.point.x)
+            # 内联自遮挡过滤（避免函数调用开销）
+            if not (abs(x_base) < half_length and abs(y_base) < half_width):
+                r_merged = math.hypot(x_base, y_base)
+                angle_merged = math.atan2(y_base, x_base)
                 angles.append(angle_merged)
                 ranges.append(r_merged)
 

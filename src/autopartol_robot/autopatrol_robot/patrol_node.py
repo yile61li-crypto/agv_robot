@@ -1,8 +1,8 @@
 from geometry_msgs.msg import PoseStamped
-from nav2_simple_commander.robot_navigator import BasicNavigator,TaskResult
+from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 import rclpy
 from tf2_ros import TransformListener, Buffer
-from tf_transformations import euler_from_quaternion,quaternion_from_euler
+from tf_transformations import euler_from_quaternion, quaternion_from_euler
 import rclpy.time
 from autopatrol_interfaces.srv import SpeechText
 
@@ -61,16 +61,28 @@ class PatrolNode(BasicNavigator):
         return points
 
     
-    def nav_to_pose(self,target_point):
+    def nav_to_pose(self, target_point):
         """
-        导航到目标点
+        导航到目标点，返回是否成功
         """
         self.goToPose(target_point)
         while not self.isTaskComplete():
             feedback = self.getFeedback()
-            self.get_logger().info(f'剩余距离：{feedback.distance_remaining}')
+            if feedback:
+                self.get_logger().info(f'剩余距离：{feedback.distance_remaining:.2f}')
         result = self.getResult()
-        self.get_logger().info(f'导航结果：{result}')
+        if result == TaskResult.SUCCEEDED:
+            self.get_logger().info('导航成功')
+            return True
+        elif result == TaskResult.CANCELED:
+            self.get_logger().warn('导航被取消')
+            return False
+        elif result == TaskResult.FAILED:
+            self.get_logger().error('导航失败')
+            return False
+        else:
+            self.get_logger().error(f'导航返回未知状态：{result}')
+            return False
 
     
     def get_current_pose(self):
@@ -117,17 +129,29 @@ class PatrolNode(BasicNavigator):
 def main():
     rclpy.init()
     patrol = PatrolNode()
-    patrol.speech_text("正在准备初始化位置")
-    patrol.init_robot_pose()
-    patrol.speech_text("位置初始化完成")
+    try:
+        patrol.speech_text("正在准备初始化位置")
+        patrol.init_robot_pose()
+        patrol.speech_text("位置初始化完成")
 
-    while rclpy.ok():
-        points = patrol.get_target_points()
-        for point in points:
-            x,y,yaw = point[0], point[1], point[2]
-            target_pose =patrol.get_pose_by_xyzaw(x,y,yaw)
-            patrol.speech_text(f'正在准备前往{x},{y}目标点')
-            patrol.nav_to_pose(target_pose)
-            patrol.speech_text(f'已经到达目标点{x},{y}')
-
-    rclpy.shutdown()
+        while rclpy.ok():
+            points = patrol.get_target_points()
+            for point in points:
+                if not rclpy.ok():
+                    break
+                x, y, yaw = point[0], point[1], point[2]
+                target_pose = patrol.get_pose_by_xyzaw(x, y, yaw)
+                patrol.speech_text(f'正在准备前往{x},{y}目标点')
+                success = patrol.nav_to_pose(target_pose)
+                if success:
+                    patrol.speech_text(f'已经到达目标点{x},{y}')
+                else:
+                    patrol.speech_text(f'前往{x},{y}目标点失败，跳过')
+    except KeyboardInterrupt:
+        patrol.get_logger().info('巡逻被用户中断')
+    except Exception as e:
+        patrol.get_logger().error(f'巡逻异常：{e}')
+    finally:
+        patrol.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()

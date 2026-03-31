@@ -19,6 +19,12 @@ class Speaker(Node):
     
 def main():
     rclpy.init()
-    node =Speaker()
-    rclpy.spin(node)
-    rclpy.shutdown()
+    node = Speaker()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        node.get_logger().info('语音节点被用户中断')
+    finally:
+        node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()

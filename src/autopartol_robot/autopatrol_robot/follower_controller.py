@@ -49,6 +49,9 @@ class FollowerController(Node):
         self.entity_state_client = self.create_client(GetEntityState, self.entity_state_service)
         self.target_pose = None
         self.pending_future = None
+        self.prev_linear = 0.0
+        self.prev_angular = 0.0
+        self.smoothing_factor = 0.3
         self.timer = self.create_timer(1.0 / self.control_rate, self.control_loop)
 
     def clamp(self, value, lower, upper):
@@ -165,8 +168,18 @@ class FollowerController(Node):
         else:
             angular = self.angular_gain * heading_error
 
-        cmd.linear.x = self.clamp(linear, -self.max_reverse_speed, self.max_linear_speed)
-        cmd.angular.z = self.clamp(angular, -self.max_angular_speed, self.max_angular_speed)
+        linear = self.clamp(linear, -self.max_reverse_speed, self.max_linear_speed)
+        angular = self.clamp(angular, -self.max_angular_speed, self.max_angular_speed)
+
+        # EMA 低通滤波平滑，避免速度跳变
+        sf = self.smoothing_factor
+        linear = sf * linear + (1.0 - sf) * self.prev_linear
+        angular = sf * angular + (1.0 - sf) * self.prev_angular
+        self.prev_linear = linear
+        self.prev_angular = angular
+
+        cmd.linear.x = linear
+        cmd.angular.z = angular
         self.cmd_pub.publish(cmd)
 
 
