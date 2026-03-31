@@ -287,5 +287,5 @@ def generate_launch_description():
         
         # 7. 启动激光融合节点 (可独立启动，不依赖控制器加载完成，但依赖仿真时间)
         laser_merger_node,
-        # ekf_node,
+        ekf_node,
     ])
