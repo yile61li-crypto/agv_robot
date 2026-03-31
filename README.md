@@ -29,23 +29,23 @@
 |   |   (Nav2 Nav)    | <--- follow ---  |  (Pose Control) |       |
 |   +--------+--------+                  +--------+--------+       |
 |            |                                    |                |
-|     Dual LiDAR + IMU                     Dual LiDAR + IMU       |
+|     Dual LiDAR + IMU                     Dual LiDAR + IMU        |
 +------------|------------------------------------|-----------------+
              |                                    |
       +------v------+                      +------v------+
-      | laser_merger |                      | laser_merger |
-      |  360 degree  |                      |  360 degree  |
+      | laser_merger|                      | laser_merger|
+      |  360 degree |                      |  360 degree |
       +------+------+                      +-------------+
              |
       +------v------+
-      |   Nav2 Stack |
-      | AMCL+Planner |
-      | +Controller  |
+      |  Nav2 Stack |
+      | AMCL+Planner|
+      | +Controller |
       +------+------+
              |
       +------v------+
-      | patrol_node  |
-      | + speaker    |
+      | patrol_node |
+      | + speaker   |
       +-------------+
 ```
 
