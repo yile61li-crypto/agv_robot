@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="lebot">
+<xacro:arg name="robot_namespace" default="robot"/>
+<xacro:arg name="link_prefix" default=""/>
+<xacro:property name="frame_prefix" value="$(arg robot_namespace)/"/>
+<!--基础base_link-->
+<xacro:include filename="$(find lebot_description)/urdf/lebot/base.urdf.xacro" />
+<!--传感器部分-->
+<xacro:include filename="$(find lebot_description)/urdf/lebot/laser.urdf.xacro" />
+<xacro:include filename="$(find lebot_description)/urdf/lebot/imu.xacro" />
+<!--执行器部分-->
+<xacro:include filename="$(find lebot_description)/urdf/lebot/wheel.urdf.xacro" />
+<!-- 插件 -->
+<xacro:include filename="$(find lebot_description)/urdf/lebot/lebot.ros2_control.xacro" />
+<xacro:include filename="$(find lebot_description)/urdf/lebot/gazebo_sensor_plugin.xacro" />
+<!-- 底盘：放大至 30cm x 20cm x 10cm -->
+<xacro:base_xacro length="0.30" width="0.20" height="0.10" link_prefix="$(arg link_prefix)"/>
+
+<!-- 轮子：半径 5cm，厚度 4cm -->
+<xacro:wheel_xacro wheel_name="left_front"  xyz="0.10 0.10 -0.05" length="0.04" radius="0.050" link_prefix="$(arg link_prefix)"/>
+<xacro:wheel_xacro wheel_name="right_front" xyz="0.10 -0.10 -0.05" length="0.04" radius="0.050" link_prefix="$(arg link_prefix)"/>
+<xacro:wheel_xacro wheel_name="left_back"   xyz="-0.10 0.10 -0.05" length="0.04" radius="0.050" link_prefix="$(arg link_prefix)"/>
+<xacro:wheel_xacro wheel_name="right_back"  xyz="-0.10 -0.10 -0.05" length="0.04" radius="0.050" link_prefix="$(arg link_prefix)"/>
+
+<!-- 雷达位置同步调整（保持相对位置） -->
+<!-- 前左雷达：X = ±(0.30/2 - 0.005) = ±0.145 → 取 0.14；Y = ±(0.20/2 - 0.005) = ±0.095 → 取 0.09 -->
+<xacro:laser_xacro laser_name="front_left" xyz="0.140 0.090 0.048" yaw="0.785" link_prefix="$(arg link_prefix)"/> <!-- Z = 底盘高/2 - 0.002 = 0.05 - 0.002 -->
+
+<!-- 后右雷达 -->
+<xacro:laser_xacro laser_name="back_right" xyz="-0.140 -0.090 0.048" yaw="-2.356" link_prefix="$(arg link_prefix)"/>
+
+<!-- <xacro:gazebo_control_plugin /> -->
+<xacro:gazebo_lidar_plugin laser_name="front_left" robot_namespace="$(arg robot_namespace)" frame_prefix="${frame_prefix}" link_prefix="$(arg link_prefix)"/>
+<xacro:gazebo_lidar_plugin laser_name="back_right" robot_namespace="$(arg robot_namespace)" frame_prefix="${frame_prefix}" link_prefix="$(arg link_prefix)"/>
+<xacro:imu_xacro name="imu" xyz="0.0 0.0 0.05" rpy="0.0 0.0 0.0" robot_namespace="$(arg robot_namespace)" frame_prefix="${frame_prefix}" link_prefix="$(arg link_prefix)"/>
+<xacro:lebot_ros2_control robot_namespace="$(arg robot_namespace)" />
+
+
+
+</robot>

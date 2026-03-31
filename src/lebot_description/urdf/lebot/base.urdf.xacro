@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" >
+    <xacro:include filename="$(find lebot_description)/urdf/lebot/common_inertia.xacro" />
+
+    <xacro:macro name="base_xacro" params="length width height link_prefix:=''">
+    <xacro:property name="wheel_radius" value="0.05"/>
+    <xacro:property name="clearance" value="0.001"/>
+        <link name="${link_prefix}base_footprint" />
+
+        <link name="${link_prefix}base_link">
+            <visual>
+
+                <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+
+                <geometry>
+                    <box size="${length} ${width} ${height}"/>
+                </geometry>
+
+                <material name="white">
+                    <color rgba="1.0 1.0 1.0 0.5"/>
+                </material>
+            </visual>
+
+            <collision>
+
+                <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+
+                <geometry>
+                    <box size="${length} ${width} ${height}"/>
+                </geometry>
+
+            </collision>
+
+            <xacro:box_inertia m="3.0" l="${length}" w="${width}" h="${height}" />
+
+        </link>
+
+        <joint name="base_footprint_joint" type="fixed">
+        <origin xyz="0.0 0.0 ${height/2.0 + wheel_radius - clearance}" rpy="0.0 0.0 0.0"/>
+            <parent link="${link_prefix}base_footprint"/>
+            <child link="${link_prefix}base_link"/>
+        </joint>
+
+    </xacro:macro>
+
+</robot>

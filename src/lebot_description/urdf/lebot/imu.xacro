@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <!-- 
+      IMU 传感器宏定义
+      用途：为机器人添加惯性测量单元，用于 robot_localization 融合，消除航向漂移。
+    -->
+    <xacro:macro name="imu_xacro" params="name xyz rpy robot_namespace frame_prefix link_prefix:=''">
+        
+        <!-- 1. 定义 IMU 连杆 -->
+        <link name="${link_prefix}${name}_link">
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.02 0.02 0.005"/> <!-- 扁平小盒子 -->
+                </geometry>
+                <material name="red">
+                    <color rgba="1.0 0.0 0.0 0.8"/>
+                </material>
+            </visual>
+            <collision>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <box size="0.02 0.02 0.005"/>
+                </geometry>
+            </collision>
+            <inertial>
+                <mass value="0.01"/>
+                <inertia ixx="0.000001" ixy="0.0" ixz="0.0" iyy="0.000001" iyz="0.0" izz="0.000001"/>
+            </inertial>
+        </link>
+
+        <!-- 2. 连接到底盘 (固定关节) -->
+        <joint name="${name}_joint" type="fixed">
+            <parent link="${link_prefix}base_link"/>
+            <child link="${link_prefix}${name}_link"/>
+            <origin xyz="${xyz}" rpy="${rpy}"/>
+        </joint>
+
+        <!-- 3. Gazebo IMU 插件 (核心：生成 /imu/data 话题) -->
+        <gazebo reference="${link_prefix}${name}_link">
+            <material>Gazebo/Red</material>
+            <sensor name="${name}_sensor" type="imu">
+                <always_on>true</always_on>
+                <update_rate>100</update_rate> <!-- 100Hz 更新率 -->
+                <visualize>true</visualize>
+                <topic>__default_topic__</topic> <!-- 默认话题，需在 plugin 中重映射 -->
+                
+                <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
+                    <!-- 关键：重映射到标准话题名 -->
+                    <ros>
+                        <namespace>${robot_namespace}</namespace>
+                        <remapping>~/out:=imu/data</remapping>
+                    </ros>
+                    <!-- 帧名称必须与 link 名一致 -->
+                    <frame_name>${link_prefix}${frame_prefix}${name}_link</frame_name>
+                    <!-- 初始方向 (通常设为 0) -->
+                    <initial_orientation_as_reference>false</initial_orientation_as_reference>
+                </plugin>
+
+                <!-- 噪声模拟 (让数据更真实，防止滤波器过拟合) -->
+                <imu>
+                    <angular_velocity>
+                        <x><noise type="gaussian"><mean>0.0</mean><stddev>0.001</stddev></noise></x>
+                        <y><noise type="gaussian"><mean>0.0</mean><stddev>0.001</stddev></noise></y>
+                        <z><noise type="gaussian"><mean>0.0</mean><stddev>0.001</stddev></noise></z>
+                    </angular_velocity>
+                    <linear_acceleration>
+                        <x><noise type="gaussian"><mean>0.0</mean><stddev>0.005</stddev></noise></x>
+                        <y><noise type="gaussian"><mean>0.0</mean><stddev>0.005</stddev></noise></y>
+                        <z><noise type="gaussian"><mean>0.0</mean><stddev>0.005</stddev></noise></z>
+                    </linear_acceleration>
+                </imu>
+            </sensor>
+        </gazebo>
+    </xacro:macro>
+</robot>

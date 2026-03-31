@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>lebot_description</name>
+  <version>0.0.0</version>
+  <description>lebot机器人描述包，包含URDF模型、Gazebo仿真配置、Rviz可视化配置</description>
+  <maintainer email="lyl@todo.todo">lyl</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- 编译工具依赖（必需） -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+
+  <!-- 核心功能依赖（编译+运行） -->
+  <!-- Launch文件工具依赖 -->
+  <depend>launch_ros</depend>
+  <depend>ament_index_python</depend>
+  <depend>nav2_common</depend>
+  <!-- 机器人状态/关节发布 -->
+  <depend>robot_state_publisher</depend>
+  <depend>joint_state_publisher_gui</depend>
+  <!-- Xacro文件解析 -->
+  <depend>xacro</depend>
+  <!-- Gazebo仿真依赖 -->
+  <depend>gazebo_ros</depend>
+  <!-- ROS2控制依赖（控制器加载） -->
+  <depend>ros2_control</depend>
+  <depend>ros2_controllers</depend>
+  <!-- Rviz2可视化依赖 -->
+  <depend>rviz2</depend>
+
+  <!-- 测试依赖（保留原有，不影响核心功能） -->
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

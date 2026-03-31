@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <!-- 引入惯性宏（和你的底盘文件共用同一文件） -->
+    <xacro:include filename="$(find lebot_description)/urdf/lebot/common_inertia.xacro" />
+
+    <!-- 激光雷达宏定义：无支撑杆+对角线安装+蓝色+90度遮挡 -->
+    <xacro:macro name="laser_xacro" params="laser_name xyz yaw link_prefix:=''">
+        <!-- Gazebo蓝色材质配置 -->
+        <gazebo reference="${link_prefix}${laser_name}_link">
+            <material>Gazebo/Green</material>
+        </gazebo>
+
+        <!-- 雷达本体Link（直接贴装底盘） -->
+        <link name="${link_prefix}${laser_name}_link">
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <geometry>
+                    <cylinder length="0.02" radius="0.02" />
+                </geometry>
+                <!-- 蓝色视觉材质（与底盘顶部平齐，视觉统一） -->
+                <material name="green">
+                    <color rgba="0.0 1.0 0.0 0.8" />
+                </material>
+            </visual>
+            <collision>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <geometry>
+                    <cylinder length="0.02" radius="0.02" />
+                </geometry>
+            </collision>
+            <!-- 雷达惯性参数（轻量化，不影响机器人运动） -->
+            <xacro:cylinder_inertia m="0.03" r="0.02" h="0.02" />
+        </link>
+
+        <!-- 雷达Joint：挂载到base_link（你的底盘Link） -->
+        <joint name="${laser_name}_joint" type="fixed">
+            <parent link="${link_prefix}base_link" />  
+            <child link="${link_prefix}${laser_name}_link" />
+            <origin xyz="${xyz}" rpy="0 0 ${yaw}" />
+        </joint>
+
+    </xacro:macro>
+
+
+</robot>

@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:macro name="lebot_ros2_control" params="robot_namespace">
+    <ros2_control name="LeBotGazeboSystem" type="system">
+            <hardware>
+                <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+            </hardware>
+            <joint name="left_front_wheel_joint">
+                <command_interface name="velocity">
+                    <param name="min">-20</param>
+                    <param name="max">20</param>
+                </command_interface>
+                <state_interface name="position" />
+                <state_interface name="velocity" />
+            </joint>
+            <joint name="right_front_wheel_joint">
+                <command_interface name="velocity">
+                    <param name="min">-20</param>
+                    <param name="max">20</param>
+                </command_interface>
+                <state_interface name="position" />
+                <state_interface name="velocity" />
+            </joint>
+            <joint name="left_back_wheel_joint">
+                <command_interface name="velocity">
+                    <param name="min">-20</param>
+                    <param name="max">20</param>
+                </command_interface>
+                <state_interface name="position" />
+                <state_interface name="velocity" />
+            </joint>
+            <joint name="right_back_wheel_joint">
+                <command_interface name="velocity">
+                    <param name="min">-20</param>
+                    <param name="max">20</param>
+                </command_interface>
+                <state_interface name="position" />
+                <state_interface name="velocity" />
+            </joint>
+        </ros2_control>
+        <gazebo>
+        <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control">
+            <parameters>$(find lebot_description)/config/lebot_ros2_controller.yaml</parameters>
+            <ros>
+                <namespace>${robot_namespace}</namespace>
+                <remapping>lebot_diff_drive_controller/cmd_vel_unstamped:=cmd_vel</remapping>
+                <remapping>lebot_diff_drive_controller/odom:=odom</remapping>
+            </ros>
+        </plugin>
+</gazebo>
+    </xacro:macro>
+</robot>

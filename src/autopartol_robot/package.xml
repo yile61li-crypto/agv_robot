@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>autopatrol_robot</name>
+  <version>0.0.0</version>
+  <description>lebot机器人自主巡航+语音合成服务节点，基于Nav2实现多航点导航、位姿获取、中文语音播报</description>
+  <maintainer email="q19864919467@163.com">lyl</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- 编译工具依赖（Python包必需） -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+
+  <!-- 核心巡航依赖（覆盖所有代码import） -->
+  <depend>rclpy</depend>
+  <depend>nav2_bringup</depend> <!-- 包含nav2_simple_commander，替代单独依赖 -->
+  <depend>tf2_ros</depend>
+  <depend>tf-transformations</depend>
+  <depend>geometry_msgs</depend>
+  <depend>gazebo_msgs</depend>
+  <!-- 依赖自定义语音服务接口包 -->
+  <depend>autopatrol_interfaces</depend>
+
+  <!-- 语音合成系统依赖（espeak底层引擎） -->
+  <exec_depend>espeak</exec_depend>
+  <exec_depend>python3-pip</exec_depend>
+
+  <!-- 测试依赖（保留原有，补充规范） -->
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

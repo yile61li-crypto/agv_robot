@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>lebot_navigation2</name>
+  <version>0.0.0</version>
+  <description>lebot机器人Navigation 2导航配置包，包含AMCL定位、DWB局部规划、全局/局部代价地图、航点跟随等核心导航功能配置</description>
+  <maintainer email="lyl@todo.todo">lyl</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- 编译工具依赖（必需，支持Python launch文件编译） -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
+
+  <!-- 核心导航依赖（编译+运行） -->
+  <!-- Navigation 2核心包（含AMCL、DWB、代价地图等所有子模块） -->
+  <depend>nav2_bringup</depend>
+  <depend>nav2_common</depend>
+  <depend>slam_toolbox</depend>
+  <depend>teleop_twist_keyboard</depend>
+  <!-- Launch文件工具依赖 -->
+  <depend>launch_ros</depend>
+  <depend>ament_index_python</depend>
+  <!-- Rviz2导航可视化依赖 -->
+  <depend>rviz2</depend>
+
+  <!-- 测试依赖（保留原有，不影响核心功能） -->
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
