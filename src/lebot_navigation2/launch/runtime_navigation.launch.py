@@ -145,18 +145,4 @@ def generate_launch_description():
             remappings=remappings + [('cmd_vel', 'cmd_vel_nav'), ('cmd_vel_smoothed', 'cmd_vel')],
             arguments=['--ros-args', '--log-level', log_level],
         ),
-        Node(
-            package='nav2_lifecycle_manager',
-            executable='lifecycle_manager',
-            name='lifecycle_manager_navigation',
-            namespace=namespace,
-            output='screen',
-            remappings=remappings,
-            arguments=['--ros-args', '--log-level', log_level],
-            parameters=[
-                {'use_sim_time': use_sim_time},
-                {'autostart': autostart},
-                {'node_names': lifecycle_nodes},
-            ],
-        ),
     ])

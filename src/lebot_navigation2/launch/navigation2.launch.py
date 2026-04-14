@@ -53,6 +53,29 @@ def generate_launch_description():
                 'use_sim_time': use_sim_time,
                 'params_file': nav2_param_path}.items(),
         ),
+        # 统一的 lifecycle_manager：按顺序激活定位节点再激活导航节点，消除竞态条件
+        launch_ros.actions.Node(
+            package='nav2_lifecycle_manager',
+            executable='lifecycle_manager',
+            name='lifecycle_manager',
+            namespace=namespace,
+            output='screen',
+            parameters=[
+                {'use_sim_time': use_sim_time},
+                {'autostart': True},
+                {'node_names': [
+                    'map_server',
+                    'amcl',
+                    'controller_server',
+                    'smoother_server',
+                    'planner_server',
+                    'behavior_server',
+                    'bt_navigator',
+                    'waypoint_follower',
+                    'velocity_smoother',
+                ]},
+            ],
+        ),
         launch.actions.SetEnvironmentVariable('LIBGL_ALWAYS_SOFTWARE', '1'),
         launch_ros.actions.Node(
             package='rviz2',
