@@ -4,7 +4,7 @@
   <name>lebot_navigation2</name>
   <version>0.0.0</version>
   <description>lebot机器人Navigation 2导航配置包，包含AMCL定位、DWB局部规划、全局/局部代价地图、航点跟随等核心导航功能配置</description>
-  <maintainer email="lyl@todo.todo">lyl</maintainer>
+  <maintainer email="q19864919467@163.com">lyl</maintainer>
   <license>Apache-2.0</license>
 
   <!-- 编译工具依赖（必需，支持Python launch文件编译） -->
@@ -22,6 +22,10 @@
   <depend>ament_index_python</depend>
   <!-- Rviz2导航可视化依赖 -->
   <depend>rviz2</depend>
+  <!-- 机器人描述包（Gazebo仿真启动） -->
+  <depend>lebot_description</depend>
+  <!-- 跟随控制器包 -->
+  <depend>lebot_follower</depend>
 
   <!-- 测试依赖（保留原有，不影响核心功能） -->
   <test_depend>ament_lint_auto</test_depend>

@@ -15,7 +15,7 @@ def generate_launch_description():
     navigation_launch = os.path.join(lebot_navigation2_dir, 'launch', 'navigation2.launch.py')
     default_model_path = os.path.join(lebot_description_dir, 'urdf', 'lebot', 'lebot.urdf.xacro')
     default_world_path = os.path.join(lebot_description_dir, 'world', 'custom_room.world')
-    default_map_path = os.path.join(lebot_navigation2_dir, 'maps', 'room5.yaml')
+    default_map_path = os.path.join(lebot_navigation2_dir, 'maps', 'room_05.yaml')
     default_nav2_params_path = os.path.join(lebot_navigation2_dir, 'config', 'nav2_params.yaml')
 
     model = LaunchConfiguration('model')

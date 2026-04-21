@@ -40,7 +40,7 @@
         </ros2_control>
         <gazebo>
         <plugin filename="libgazebo_ros2_control.so" name="gazebo_ros2_control">
-            <parameters>$(find lebot_description)/config/lebot_ros2_controller.yaml</parameters>
+            <parameters>$(find lebot_description)/config/ros2_control.yaml</parameters>
             <ros>
                 <namespace>${robot_namespace}</namespace>
                 <remapping>lebot_diff_drive_controller/cmd_vel_unstamped:=cmd_vel</remapping>

@@ -1,22 +1,60 @@
-# LeBot — 双机器人自主巡逻仿真系统
+# LeBot — 双机器人协同导航仿真系统
 
-基于 **ROS 2 Humble + Gazebo Classic 11** 的四轮差速机器人仿真平台。支持双机器人协同（主机器人 Nav2 导航巡逻 + 跟随机器人姿态跟踪），集成 SLAM 建图、自主导航、360° 激光融合、EKF 传感器融合、中文语音播报等功能。
+基于 **ROS 2 Humble + Gazebo Classic 11** 的四轮差速机器人仿真平台。支持双机器人协同（主机器人 Nav2 导航 + 跟随机器人姿态跟踪），集成 SLAM 建图、自主导航、360° 激光融合、EKF 传感器融合等功能。
+
+> **关于路径变量**：本文档中使用 `<WORKSPACE_PATH>` 表示工作空间路径（如 `~/WorkSpace/lebot_ws` 或 `/home/<username>/lebot_ws`），请根据实际路径替换。
+
+---
+
+## 目录
+
+- [1. 系统概览](#1-系统概览)
+  - [1.1 项目简介](#11-项目简介)
+  - [1.2 技术栈总览](#12-技术栈总览)
+  - [1.3 系统架构图](#13-系统架构图)
+- [2. 功能包说明](#2-功能包说明)
+  - [lebot_description](#lebot_description---机器人描述与仿真)
+  - [laser_merger](#laser_merger---激光雷达数据融合)
+  - [lebot_navigation2](#lebot_navigation2---导航与建图)
+  - [lebot_follower](#lebot_follower---跟随控制)
+- [3. 快速开始](#3-快速开始)
+  - [3.1 环境依赖](#31-环境依赖)
+  - [3.2 编译与 Source](#32-编译与-source)
+  - [3.3 单机器人仿真](#33-单机器人仿真gazebo--控制器)
+  - [3.4 双机器人导航与跟随](#34-双机器人导航与跟随)
+  - [3.5 SLAM 建图](#35-slam-建图)
+- [4. 核心话题一览](#4-核心话题一览)
+- [5. TF 坐标系树](#5-tf-坐标系树)
+- [6. 常见问题](#6-常见问题)
+- [7. 项目目录总览](#7-项目目录总览)
+- [8. 许可证](#8-许可证)
 
 ---
 
 ## 1. 系统概览
 
+### 1.1 项目简介
+
+本项目是一个完整的双机器人协同导航仿真系统，基于 ROS 2 Humble 和 Gazebo Classic 11 构建。系统包含两个机器人：
+- **主机器人（main_robot）**：具备完整 Nav2 导航能力，可自主定位、规划路径并导航到目标点
+- **跟随机器人（follower_robot）**：通过 Gazebo 姿态跟踪实现跟随，自动保持在主机器人身后指定距离
+
+### 1.2 技术栈总览
+
 | 项目 | 说明 |
 |------|------|
-| **平台** | Ubuntu 22.04 + ROS 2 Humble |
-| **仿真器** | Gazebo Classic 11 |
-| **机器人** | 四轮差速驱动，双激光雷达（前左 + 后右），IMU |
-| **导航** | Nav2（AMCL 定位 + NavFn 全局规划 + DWB 局部规划） |
-| **建图** | SLAM Toolbox（异步模式） |
-| **传感器融合** | robot_localization（EKF：轮式里程计 + IMU） |
-| **协同** | 主机器人 Nav2 巡逻 + 跟随机器人 Gazebo 姿态跟踪 |
+| **操作系统** | Ubuntu 22.04 |
+| **ROS 版本** | ROS 2 Humble Hawksbill（LTS 版本，支持至 2027） |
+| **仿真环境** | Gazebo Classic 11（与 ROS 2 Humble 官方兼容版本） |
+| **机器人平台** | 四轮差速驱动底盘，配备双 180° 激光雷达 + IMU |
+| **导航系统** | Nav2（Navigation2）：AMCL 定位 + NavFn 全局规划 + DWB 局部规划 |
+| **建图系统** | SLAM Toolbox（异步建图模式，适合大场景） |
+| **传感器融合** | robot_localization（EKF 扩展卡尔曼滤波器）：融合轮式里程计与 IMU |
+| **协同机制** | 基于 Gazebo 实体状态服务的姿态查询与比例控制 |
 
-### 系统架构
+### 1.3 系统架构图
+
+下图展示了两个机器人在系统中的数据流和控制关系：
 
 ```
 +------------------------------------------------------------------+
@@ -40,16 +78,18 @@
       | AMCL+Planner|                      |   cmd_vel    |
       | +Controller |                      +-------------+
       +------+------+
-             |
-      +------v------+
-      | patrol_node |
-      | + speaker   |
-      +-------------+
 ```
+
+**说明：**
+- **main_robot**：激光数据经融合后输入 Nav2 导航栈，实现自主导航
+- **follower_robot**：激光数据用于 EKF 融合，姿态控制直接查询 Gazebo 状态，无需导航栈
+- 两个机器人的传感器数据流相互独立，通过 Gazebo 共享同一仿真世界
 
 ---
 
 ## 2. 功能包说明
+
+本项目由 4 个功能包组成，每个包职责单一、接口清晰。以下是各功能包的详细说明：
 
 ### 2.1 `lebot_description` — 机器人模型与仿真环境
 
@@ -65,11 +105,11 @@ lebot_description/
 ├── config/
 │   ├── ekf_config.yaml             # EKF 传感器融合参数（轮式里程计 + IMU）
 │   ├── lebot.rviz                  # 模型查看 RViz 配置
-│   └── lebot_ros2_controller.yaml  # ros2_control 差速控制器参数
+│   └── ros2_control.yaml             # ros2_control 差速控制器参数
 ├── launch/
 │   ├── gazebo_sim.launch.py        # 核心：Gazebo 仿真 + 机器人生成 + 控制器加载
 │   ├── view_model.launch.py        # 独立查看 URDF 模型（无需 Gazebo）
-│   └── runtime_rviz.launch.py      # 运行时 RViz 可视化
+│   └── rviz.launch.py              # 运行时 RViz 可视化
 ├── urdf/lebot/
 │   ├── lebot.urdf.xacro            # 顶层模型入口（组合所有子模块）
 │   ├── base.urdf.xacro             # 底盘 link + base_footprint 关节
@@ -102,21 +142,21 @@ lebot_description/
 | 文件 | 职责 |
 |------|------|
 | `ekf_config.yaml` | EKF 节点参数：融合轮式里程计（位置+线速度+角速度Z）和 IMU（角速度Z），2D 模式，Yaw 过程噪声调大至 0.08 防止转向滞后 |
-| `lebot_ros2_controller.yaml` | 差速控制器参数：轮距 0.20 m，轮半径 0.05 m，最大线速度 0.5 m/s，最大角速度 1.8 rad/s，50Hz 发布，cmd_vel 超时 0.5 s |
+| `ros2_control.yaml` | 差速控制器参数：轮距 0.20 m，轮半径 0.05 m，最大线速度 0.5 m/s，最大角速度 1.8 rad/s，50Hz 发布，cmd_vel 超时 0.5 s |
 
 #### 机器人物理参数
 
-| 参数 | 值 |
-|------|------|
-| 车身尺寸 | 0.30 m × 0.20 m × 0.10 m |
-| 轮距（左右轮中心距） | 0.20 m |
-| 轮半径 | 0.05 m |
-| 轮厚度 | 0.04 m |
-| 驱动方式 | 四轮差速（左右各 2 轮，同侧同速） |
-| 底盘质量 | 3.0 kg |
-| 单轮质量 | 0.3 kg |
-| 最大线速度 | 0.5 m/s |
-| 最大角速度 | 1.8 rad/s |
+| 参数 | 值 | 说明 |
+|------|------|------|
+| 车身尺寸 | 0.30 m × 0.20 m × 0.10 m | 长×宽×高，白色半透明外观 |
+| 轮距（左右轮中心距） | 0.20 m | 轮子中心线之间的距离，决定转弯半径 |
+| 轮半径 | 0.05 m | 轮子半径，用于里程计算 |
+| 轮厚度 | 0.04 m | 轮子宽度 |
+| 驱动方式 | 四轮差速 | 左前轮+左后轮同速，右前轮+右后轮同速，通过左右差速实现转向 |
+| 底盘质量 | 3.0 kg | 主体质量，影响惯性 |
+| 单轮质量 | 0.3 kg | 每个轮子的质量 |
+| 最大线速度 | 0.5 m/s | 约 1.8 km/h，适合室内导航 |
+| 最大角速度 | 1.8 rad/s | 约 103°/s，原地旋转一周约 3.5 秒 |
 
 #### 雷达安装位置
 
@@ -198,8 +238,9 @@ lebot_navigation2/
 │   ├── runtime_navigation.launch.py     # Nav2 控制/规划/行为节点
 │   └── mapping.launch.py               # SLAM 建图（Gazebo + SLAM + 键盘遥控 + RViz）
 └── maps/
-    ├── room5.yaml / room5.pgm     # 当前默认导航地图
-    └── room1~7                    # 其他版本地图存档
+    ├── room_05.yaml / room_05.pgm  # 当前默认导航地图
+    ├── room_01~07                  # 其他版本地图存档
+    └── 支持命令行切换地图：map:=room_XX.yaml
 ```
 
 #### 各启动文件职责
@@ -247,36 +288,28 @@ main_robot_nav_follow.launch.py
 
 ---
 
-### 2.4 `autopatrol_robot` — 自主巡逻与跟随控制
+### 2.4 `lebot_follower` — 跟随控制
 
-巡逻逻辑、中文语音播报、跟随控制器、领航者姿态发布。
+跟随控制器从 `autopatrol_robot` 迁移而来，负责领航者姿态发布和跟随机器人控制。
 
 #### 目录结构
 
 ```
-autopatrol_robot/
+lebot_follower/
 ├── package.xml
 ├── setup.cfg
 ├── setup.py
 ├── resource/
-├── autopatrol_robot/
-│   ├── __init__.py
-│   ├── patrol_node.py             # 多航点巡逻节点
-│   ├── speaker.py                 # 中文语音播报服务节点（espeak-ng）
-│   ├── follower_controller.py     # 跟随控制器（基于 Gazebo 姿态）
-│   └── entity_pose_publisher.py   # Gazebo 实体姿态发布器
-├── config/
-│   └── patrol_config.yaml         # 巡逻航点配置
-└── launch/
-    └── autopatrol.launch.py       # 巡逻启动文件
+└── lebot_follower/
+    ├── __init__.py
+    ├── follower_controller.py     # 跟随控制器（基于 Gazebo 姿态）
+    └── entity_pose_publisher.py   # Gazebo 实体姿态发布器
 ```
 
 #### 各节点职责
 
 | 节点 | 职责 | 话题/服务 |
 |------|------|-----------|
-| `patrol_node` | 继承 `BasicNavigator`，循环导航到配置的航点列表，每到达一个航点调用语音服务播报 | 调用 `speech_text` 服务；参数 `initial_point`、`target_points` |
-| `speaker` | 语音播报服务节点，使用 espeak-ng 中文语音引擎 | 提供 `speech_text` 服务（`SpeechText.srv`：`string text → bool result`） |
 | `follower_controller` | 跟随控制器：订阅领航者目标姿态，查询跟随者当前姿态，比例控制 + EMA 平滑输出 `cmd_vel` | 订阅 `/<main_ns>/follow_target_pose`；发布 `/<follower_ns>/cmd_vel`；调用 `/gazebo_state/get_entity_state` |
 | `entity_pose_publisher` | 领航者姿态发布器：定时从 Gazebo 查询主机器人世界坐标姿态并发布 | 发布 `/<main_ns>/follow_target_pose`；调用 `/gazebo_state/get_entity_state` |
 
@@ -292,85 +325,65 @@ autopatrol_robot/
    - EMA 低通滤波（smoothing_factor=0.3）平滑速度输出，防止抖动
    - 限幅：最大前进 0.5 m/s，最大后退 0.3 m/s，最大角速度 1.8 rad/s
 
-#### 巡逻航点配置
-
-`config/patrol_config.yaml` 定义巡逻航点：
-
-```yaml
-patrol_node:
-  ros__parameters:
-    initial_point: [0.0, 0.0, 0.0]       # 初始位姿 [x, y, yaw]
-    target_points: [                        # 巡逻航点列表，每 3 个一组 [x, y, yaw]
-      0.0,  0.0,  0.0,
-      1.0,  2.0,  3.14,
-      -4.5, 1.5,  1.57,
-      -8.0, -5.0, 1.57,
-      1.0,  -5.0, 3.14,
-    ]
-```
-
----
-
-### 2.5 `autopatrol_interfaces` — 自定义服务接口
-
-```
-autopatrol_interfaces/
-├── CMakeLists.txt
-├── package.xml
-└── srv/
-    └── SpeechText.srv    # 语音合成服务接口
-```
-
-**`SpeechText.srv` 定义：**
-
-```
-string text      # 请求：要播报的文本
----
-bool result      # 响应：是否播报成功
-```
-
 ---
 
 ## 3. 快速开始
 
 ### 3.1 环境依赖
 
+在开始之前，请确保系统已安装以下依赖。安装命令中的 `ros-humble-` 前缀表示这些包来自 ROS 2 Humble 的官方软件源。
+
 ```bash
-# ROS 2 Humble 基础包
+# ROS 2 Humble 基础包（必需）
+# ros-humble-desktop: 包含 ROS 2 核心组件、RCLCPP、RCLPY、标准消息等
+# ros-humble-gazebo-ros-pkgs: Gazebo 与 ROS 2 的桥接插件
 sudo apt install ros-humble-desktop ros-humble-gazebo-ros-pkgs
 
-# 导航与建图
+# 导航与建图（必需）
+# nav2_bringup: Nav2 导航栈的启动包
+# slam_toolbox: 2D 激光 SLAM 建图工具
+# robot_localization: EKF/UKF 传感器融合包
 sudo apt install ros-humble-navigation2 ros-humble-nav2-bringup \
                  ros-humble-slam-toolbox ros-humble-robot-localization
 
-# ros2_control
+# ros2_control（必需）
+# ros2_control: 硬件接口框架
+# ros2_controllers: 标准控制器（差速、关节状态等）
+# gazebo_ros2_control: Gazebo 中的 ros2_control 插件
 sudo apt install ros-humble-ros2-control ros-humble-ros2-controllers \
                  ros-humble-gazebo-ros2-control
 
-# 语音合成
-sudo apt install espeak-ng
-pip3 install espeakng
-
-# TF 工具
+# TF 工具（必需）
+# transforms3d: Python 的 3D 变换计算库
+# tf-transformations: ROS 2 的 TF 四元数/欧拉角转换工具
 pip3 install transforms3d
 sudo apt install ros-humble-tf-transformations
 
-# 键盘遥控（建图时使用）
+# 键盘遥控（建图时需要）
+# 用于手动控制机器人遍历环境以完成建图
 sudo apt install ros-humble-teleop-twist-keyboard
 
-# 模型查看（可选，view_model.launch.py 需要）
+# 模型查看（可选）
+# 仅在需要独立查看 URDF 模型时使用，无需启动 Gazebo
 sudo apt install ros-humble-joint-state-publisher-gui
 ```
+
+> 💡 **提示**：安装完成后，建议重启终端或运行 `source ~/.bashrc` 确保环境变量生效。
 
 ### 3.2 编译与 Source
 
 ```bash
-cd ~/WorkSpace/lebot_ws
+cd <WORKSPACE_PATH>
 colcon build
 source install/setup.bash
 ```
 
 > **注意**：每次打开新终端都需 `source install/setup.bash`，或将其加入 `~/.bashrc`：
+> ```bash
+> echo "source <WORKSPACE_PATH>/install/setup.bash" >> ~/.bashrc
+> ```
+> 
+> 示例（如工作空间为 `~/WorkSpace/lebot_ws`）：
 > ```bash
 > echo "source ~/WorkSpace/lebot_ws/install/setup.bash" >> ~/.bashrc
 > ```
@@ -448,7 +461,7 @@ ros2 launch lebot_description view_model.launch.py
 在仿真已运行的情况下，单独启动 RViz 查看机器人状态：
 
 ```bash
-ros2 launch lebot_description runtime_rviz.launch.py
+ros2 launch lebot_description rviz.launch.py
 ```
 
 | 参数 | 默认值 | 说明 |
@@ -488,7 +501,7 @@ ros2 launch lebot_navigation2 main_robot_nav_follow.launch.py
 |------|--------|------|
 | `model` | `lebot.urdf.xacro` | 机器人模型文件路径 |
 | `world` | `custom_room.world` | Gazebo 世界文件路径 |
-| `map` | `room5.yaml` | 导航地图文件路径 |
+| `map` | `room_05.yaml` | 导航地图文件路径，支持命令行变更，如 `map:=room_03.yaml` |
 | `params_file` | `nav2_params.yaml` | Nav2 参数文件路径 |
 | `use_sim_time` | `true` | 使用仿真时间 |
 | `use_rviz` | `true` | 是否启动导航 RViz |
@@ -553,10 +566,16 @@ ros2 launch lebot_navigation2 mapping.launch.py
 ```bash
 # 在另一个终端
 ros2 run nav2_map_server map_saver_cli \
-  -f ~/WorkSpace/lebot_ws/src/lebot_navigation2/maps/my_map
+  -f <WORKSPACE_PATH>/src/lebot_navigation2/maps/my_map
 ```
 
 这会生成 `my_map.yaml`（元数据）和 `my_map.pgm`（栅格图）两个文件。
+
+> 示例（如工作空间为 `~/WorkSpace/lebot_ws`）：
+> ```bash
+> ros2 run nav2_map_server map_saver_cli \
+>   -f ~/WorkSpace/lebot_ws/src/lebot_navigation2/maps/my_map
+> ```
 
 **可覆盖参数：**
 
@@ -571,44 +590,6 @@ ros2 run nav2_map_server map_saver_cli \
 
 ---
 
-### 3.8 自主巡逻
-
-让机器人自动沿预设航点循环巡逻，并在每个航点播报语音：
-
-**第一步：启动导航环境**（双机器人或单机器人均可）
-
-```bash
-# 方式 A：双机器人导航 + 跟随
-ros2 launch lebot_navigation2 main_robot_nav_follow.launch.py
-
-# 方式 B：单机器人导航（需先启动仿真，再启动导航）
-ros2 launch lebot_description gazebo_sim.launch.py
-# 另一个终端启动 Nav2
-ros2 launch lebot_navigation2 navigation2.launch.py namespace:=robot
-```
-
-**第二步：启动巡逻节点**
-
-```bash
-# 在另一个终端
-ros2 launch autopatrol_robot autopatrol.launch.py
-```
-
-**启动流程：**
-
-1. 启动 `patrol_node`（读取 `patrol_config.yaml` 中的航点，循环导航）
-2. 启动 `speaker`（语音播报服务节点）
-
-巡逻节点会依次导航到每个航点，到达后语音播报，然后前往下一个航点，循环往复。
-
-**修改巡逻航点：** 编辑 `src/autopatrol_robot/config/patrol_config.yaml`，修改后需重新编译：
-
-```bash
-colcon build --packages-select autopatrol_robot
-source install/setup.bash
-```
-
----
 
 ## 4. 核心话题一览
 
@@ -639,7 +620,6 @@ source install/setup.bash
 | 服务 | 类型 | 说明 |
 |------|------|------|
 | `/gazebo_state/get_entity_state` | `gazebo_msgs/GetEntityState` | 查询 Gazebo 中实体姿态（跟随控制用） |
-| `speech_text` | `autopatrol_interfaces/SpeechText` | 中文语音播报 |
 
 ---
 
@@ -708,10 +688,9 @@ lebot_ws/
 │   ├── MULTI_ROBOT_FOLLOW_ARCHITECTURE_NOTES.md
 │   └── WORKSPACE_DIFF_AND_NAMESPACE_NOTES.md
 ├── src/
-│   ├── autopatrol_interfaces/         # 自定义 ROS 2 服务接口（SpeechText.srv）
-│   ├── autopatrol_robot/              # 巡逻、语音、跟随控制节点
-│   ├── laser_merger/                  # 激光雷达数据融合
+│   ├── laser_merger/                  # 双激光雷达 360° 数据融合
 │   ├── lebot_description/             # 机器人模型、仿真环境、控制器配置
+│   ├── lebot_follower/                # 跟随控制器（entity_pose_publisher + follower_controller）
 │   └── lebot_navigation2/             # Nav2 导航、SLAM 建图、双机器人编排
 ├── .gitignore
 └── README.md                          # 本文档

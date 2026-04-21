@@ -4,7 +4,7 @@
   <name>lebot_description</name>
   <version>0.0.0</version>
   <description>lebot机器人描述包，包含URDF模型、Gazebo仿真配置、Rviz可视化配置</description>
-  <maintainer email="lyl@todo.todo">lyl</maintainer>
+  <maintainer email="q19864919467@163.com">lyl</maintainer>
   <license>Apache-2.0</license>
 
   <!-- 编译工具依赖（必需） -->

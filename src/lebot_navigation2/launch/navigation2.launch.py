@@ -19,7 +19,7 @@ def generate_launch_description():
     use_rviz = launch.substitutions.LaunchConfiguration(
         'use_rviz', default='true')
     map_yaml_path = launch.substitutions.LaunchConfiguration(
-        'map', default=os.path.join(lebot_navigation2_dir, 'maps', 'room5.yaml'))
+        'map', default=os.path.join(lebot_navigation2_dir, 'maps', 'room_05.yaml'))
     nav2_param_path = launch.substitutions.LaunchConfiguration(
         'params_file', default=os.path.join(lebot_navigation2_dir, 'config', 'nav2_params.yaml'))
 

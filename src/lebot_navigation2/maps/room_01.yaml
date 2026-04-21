@@ -1,4 +1,4 @@
-image: room.pgm
+image: room_01.pgm
 mode: trinary
 resolution: 0.05
 origin: [-4.82, -22.7, 0]

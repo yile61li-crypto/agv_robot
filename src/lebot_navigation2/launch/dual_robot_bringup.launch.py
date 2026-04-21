@@ -72,7 +72,7 @@ def generate_launch_description():
         period=follower_controller_start_delay,
         actions=[
             Node(
-                package='autopatrol_robot',
+                package='lebot_follower',
                 executable='entity_pose_publisher',
                 name='leader_pose_publisher',
                 output='screen',
@@ -86,7 +86,7 @@ def generate_launch_description():
                 }],
             ),
             Node(
-                package='autopatrol_robot',
+                package='lebot_follower',
                 executable='follower_controller',
                 name='follower_controller',
                 output='screen',
